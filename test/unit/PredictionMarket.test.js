@@ -167,4 +167,38 @@ it("reverts selling zero shares", async function () {
     market.connect(trader).sellShares(true, 0, 1)
   ).to.be.revertedWithCustomError(market, "ZeroAmount");
 });
+
+it("resolves market after deadline", async function () {
+  await ethers.provider.send("evm_increaseTime", [8 * 24 * 60 * 60]);
+  await ethers.provider.send("evm_mine");
+
+  await expect(
+    market.resolveMarket(true)
+  ).to.emit(market, "MarketResolved");
+
+  expect(await market.state()).to.equal(1);
+  expect(await market.winningOutcome()).to.equal(true);
+});
+
+it("reverts resolving before deadline", async function () {
+  await expect(
+    market.resolveMarket(true)
+  ).to.be.revertedWithCustomError(market, "DeadlineNotPassed");
+});
+
+it("allows winning YES holder to claim payout", async function () {
+  const amountIn = ethers.parseEther("100");
+
+  await collateral.connect(trader).approve(await market.getAddress(), amountIn);
+  await market.connect(trader).buyShares(true, amountIn, 1);
+
+  await ethers.provider.send("evm_increaseTime", [8 * 24 * 60 * 60]);
+  await ethers.provider.send("evm_mine");
+
+  await market.resolveMarket(true);
+
+  await expect(
+    market.connect(trader).claimPayout()
+  ).to.not.be.reverted;
+});
 });
