@@ -137,4 +137,96 @@ contract PredictionMarket is ReentrancyGuard {
 
         emit SharesBought(msg.sender, outcome, collateralIn, sharesOut, fee);
     }
+
+    function sellShares(
+    bool outcome,
+    uint256 sharesIn,
+    uint256 minCollateralOut
+) external nonReentrant returns (uint256 collateralOut) {
+    if (state != MarketState.Open) revert MarketNotOpen();
+    if (sharesIn == 0) revert ZeroAmount();
+
+    uint256 fee;
+
+    if (outcome) {
+        collateralOut = getAmountOut(sharesIn, yesReserve, noReserve);
+
+        fee = (collateralOut * FEE_BPS) / BPS;
+        collateralOut -= fee;
+
+        if (collateralOut < minCollateralOut) {
+            revert SlippageExceeded();
+        }
+
+        yesReserve += sharesIn;
+        noReserve -= collateralOut;
+
+        outcomeToken.burn(
+            msg.sender,
+            outcomeToken.YES(),
+            sharesIn
+        );
+    } else {
+        collateralOut = getAmountOut(sharesIn, noReserve, yesReserve);
+
+        fee = (collateralOut * FEE_BPS) / BPS;
+        collateralOut -= fee;
+
+        if (collateralOut < minCollateralOut) {
+            revert SlippageExceeded();
+        }
+
+        noReserve += sharesIn;
+        yesReserve -= collateralOut;
+
+        outcomeToken.burn(
+            msg.sender,
+            outcomeToken.NO(),
+            sharesIn
+        );
+    }
+
+    collateralToken.safeTransfer(msg.sender, collateralOut);
+
+    emit SharesSold(
+        msg.sender,
+        outcome,
+        sharesIn,
+        collateralOut,
+        fee
+    );
+}
+
+function resolveMarket(bool _winningOutcome) external {
+    if (block.timestamp < endTime) revert DeadlineNotPassed();
+    if (state != MarketState.Open) revert MarketNotOpen();
+
+    state = MarketState.Resolved;
+    winningOutcome = _winningOutcome;
+
+    emit MarketResolved(_winningOutcome);
+}
+
+function claimPayout() external nonReentrant {
+    if (state != MarketState.Resolved) revert MarketNotResolved();
+
+    uint256 winningTokenId = winningOutcome
+        ? outcomeToken.YES()
+        : outcomeToken.NO();
+
+    uint256 balance = outcomeToken.balanceOf(
+        msg.sender,
+        winningTokenId
+    );
+
+    if (balance == 0) revert ZeroAmount();
+
+    outcomeToken.burn(
+        msg.sender,
+        winningTokenId,
+        balance
+    );
+
+    collateralToken.safeTransfer(msg.sender, balance);
+}
 }
