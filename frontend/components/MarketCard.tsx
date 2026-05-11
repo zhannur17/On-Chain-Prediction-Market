@@ -1,3 +1,5 @@
+"use client";
+
 type MarketCardProps = {
   question: string;
   yesPrice: string;
@@ -9,6 +11,10 @@ export default function MarketCard({
   yesPrice,
   noPrice,
 }: MarketCardProps) {
+  const handleBuy = (outcome: "YES" | "NO") => {
+    alert(`Buy ${outcome} clicked. Contract transaction will be connected next.`);
+  };
+
   return (
     <div className="border rounded-xl p-6 shadow-sm mt-6">
       <h3 className="text-xl font-semibold">{question}</h3>
@@ -24,11 +30,17 @@ export default function MarketCard({
       </div>
 
       <div className="flex gap-4 mt-6">
-        <button className="bg-green-500 text-white px-4 py-2 rounded-lg">
+        <button
+          onClick={() => handleBuy("YES")}
+          className="bg-green-500 text-white px-4 py-2 rounded-lg"
+        >
           Buy YES
         </button>
 
-        <button className="bg-red-500 text-white px-4 py-2 rounded-lg">
+        <button
+          onClick={() => handleBuy("NO")}
+          className="bg-red-500 text-white px-4 py-2 rounded-lg"
+        >
           Buy NO
         </button>
       </div>
