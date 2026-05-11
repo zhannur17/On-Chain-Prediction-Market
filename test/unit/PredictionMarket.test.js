@@ -127,4 +127,44 @@ it("reverts buying after deadline", async function () {
     market.connect(trader).buyShares(true, amountIn, 1)
   ).to.be.revertedWithCustomError(market, "DeadlinePassed");
 });
+
+it("allows user to sell YES shares", async function () {
+  const amountIn = ethers.parseEther("100");
+
+  await collateral.connect(trader).approve(await market.getAddress(), amountIn);
+
+  await market.connect(trader).buyShares(true, amountIn, 1);
+
+  const yesBalance = await outcomeToken.balanceOf(
+    trader.address,
+    await outcomeToken.YES()
+  );
+
+  await expect(
+    market.connect(trader).sellShares(true, yesBalance, 1)
+  ).to.emit(market, "SharesSold");
+});
+
+it("allows user to sell NO shares", async function () {
+  const amountIn = ethers.parseEther("100");
+
+  await collateral.connect(trader).approve(await market.getAddress(), amountIn);
+
+  await market.connect(trader).buyShares(false, amountIn, 1);
+
+  const noBalance = await outcomeToken.balanceOf(
+    trader.address,
+    await outcomeToken.NO()
+  );
+
+  await expect(
+    market.connect(trader).sellShares(false, noBalance, 1)
+  ).to.emit(market, "SharesSold");
+});
+
+it("reverts selling zero shares", async function () {
+  await expect(
+    market.connect(trader).sellShares(true, 0, 1)
+  ).to.be.revertedWithCustomError(market, "ZeroAmount");
+});
 });
