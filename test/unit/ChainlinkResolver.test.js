@@ -63,4 +63,44 @@ it("resolves market as NO when price is below strike", async function () {
   expect(resolution.resolved).to.equal(true);
   expect(resolution.outcome).to.equal(false);
 });
+
+it("reverts when resolving unregistered market", async function () {
+  const marketId = ethers.id("UNKNOWN");
+
+  await expect(
+    resolver.resolveMarket(marketId)
+  ).to.be.revertedWithCustomError(resolver, "FeedNotRegistered");
+});
+
+it("reverts when resolving already resolved market", async function () {
+  const marketId = ethers.id("ETH-5000-2026");
+
+  await resolver.registerFeed(
+    marketId,
+    await mockFeed.getAddress(),
+    2500_00000000
+  );
+
+  await resolver.resolveMarket(marketId);
+
+  await expect(
+    resolver.resolveMarket(marketId)
+  ).to.be.revertedWithCustomError(resolver, "AlreadyResolved");
+});
+
+it("reverts on invalid price", async function () {
+  const marketId = ethers.id("ETH-5000-2026");
+
+  await mockFeed.setAnswer(0);
+
+  await resolver.registerFeed(
+    marketId,
+    await mockFeed.getAddress(),
+    2500_00000000
+  );
+
+  await expect(
+    resolver.resolveMarket(marketId)
+  ).to.be.revertedWithCustomError(resolver, "InvalidPrice");
+});
 });
