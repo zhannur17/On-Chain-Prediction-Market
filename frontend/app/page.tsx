@@ -1,9 +1,23 @@
 "use client";
 
-import { useAccount, useConnect, useDisconnect, useChainId } from "wagmi";
+import { useEffect, useState } from "react";
+import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { injected } from "wagmi/connectors";
+import { ethers } from "ethers";
 
 import MarketCard from "../components/MarketCard";
+
+import { CONTRACTS } from "../lib/contracts";
+
+import MarketFactoryABI from "../lib/abis/MarketFactory.json";
+import PredictionMarketABI from "../lib/abis/PredictionMarket.json";
+
+type Market = {
+  address: string;
+  question: string;
+  yesPrice: string;
+  noPrice: string;
+};
 
 export default function Home() {
   const { address, isConnected } = useAccount();
@@ -12,90 +26,110 @@ export default function Home() {
 
   const { disconnect } = useDisconnect();
 
-  const chainId = useChainId();
+  const [markets, setMarkets] = useState<Market[]>([]);
 
-  const shortAddress = address
-    ? `${address.slice(0, 6)}...${address.slice(-4)}`
-    : "";
+  useEffect(() => {
+    loadMarkets();
+  }, []);
+
+  const loadMarkets = async () => {
+    try {
+      const provider = new ethers.JsonRpcProvider(
+        "http://127.0.0.1:8545"
+      );
+
+      const factory = new ethers.Contract(
+        CONTRACTS.MarketFactory,
+        MarketFactoryABI,
+        provider
+      );
+
+      const count = await factory.getMarketsCount();
+
+      const loadedMarkets: Market[] = [];
+
+      for (let i = 0; i < Number(count); i++) {
+        const marketAddress = await factory.markets(i);
+
+        const market = new ethers.Contract(
+          marketAddress,
+          PredictionMarketABI,
+          provider
+        );
+
+        const question = await market.question();
+
+        const yesReserve = await market.yesReserve();
+
+        const noReserve = await market.noReserve();
+
+        const total =
+          Number(yesReserve) + Number(noReserve);
+
+        const yesPrice = (
+          Number(yesReserve) / total
+        ).toFixed(2);
+
+        const noPrice = (
+          Number(noReserve) / total
+        ).toFixed(2);
+
+        loadedMarkets.push({
+          address: marketAddress,
+          question,
+          yesPrice,
+          noPrice,
+        });
+      }
+
+      setMarkets(loadedMarkets);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   return (
-    <main className="min-h-screen bg-[#050816] text-white">
-      <header className="border-b border-white/10 bg-[#0d1025]">
-        <div className="max-w-7xl mx-auto px-8 py-6 flex justify-between items-center">
-          <div>
-            <h1 className="text-4xl font-bold text-purple-400">
-              On-Chain Prediction Market
-            </h1>
+    <main className="min-h-screen p-8">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">
+          On-Chain Prediction Market
+        </h1>
 
-            <p className="text-gray-400 mt-2">
-              Decentralized prediction protocol powered by Solidity
-            </p>
-          </div>
+        {!isConnected ? (
+          <button
+            onClick={() => connect({ connector: injected() })}
+            className="bg-black text-white px-4 py-2 rounded"
+          >
+            Connect Wallet
+          </button>
+        ) : (
+          <div className="flex gap-4 items-center">
+            <span>{address}</span>
 
-          {!isConnected ? (
             <button
-              onClick={() => connect({ connector: injected() })}
-              className="bg-purple-600 hover:bg-purple-500 transition px-6 py-3 rounded-xl font-semibold shadow-lg"
+              onClick={() => disconnect()}
+              className="bg-red-500 text-white px-4 py-2 rounded"
             >
-              Connect Wallet
+              Disconnect
             </button>
-          ) : (
-            <div className="flex items-center gap-4">
-              <div className="bg-[#171b34] border border-white/10 px-4 py-2 rounded-xl">
-                <p className="text-sm text-gray-400">Network</p>
-                <p className="font-semibold">
-                  Chain ID: {chainId}
-                </p>
-              </div>
-
-              <div className="bg-[#171b34] border border-white/10 px-4 py-2 rounded-xl">
-                <p className="text-sm text-gray-400">Wallet</p>
-                <p className="font-semibold text-cyan-400">
-                  {shortAddress}
-                </p>
-              </div>
-
-              <button
-                onClick={() => disconnect()}
-                className="bg-red-500 hover:bg-red-400 transition px-4 py-2 rounded-xl font-semibold"
-              >
-                Disconnect
-              </button>
-            </div>
-          )}
-        </div>
-      </header>
-
-      <section className="max-w-7xl mx-auto px-8 py-12">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold">
-              Prediction Markets
-            </h2>
-
-            <p className="text-gray-400 mt-2">
-              Trade tokenized outcome shares using AMM pricing
-            </p>
           </div>
+        )}
+      </div>
 
-          <div className="bg-[#171b34] border border-white/10 px-5 py-3 rounded-xl">
-            <p className="text-gray-400 text-sm">
-              Protocol Status
-            </p>
+      <section className="mt-12">
+        <h2 className="text-xl font-semibold">
+          Markets
+        </h2>
 
-            <p className="text-green-400 font-semibold">
-              Active
-            </p>
-          </div>
-        </div>
-
-        <MarketCard
-          question="Will ETH be above $5000 by 2026?"
-          yesPrice="62"
-          noPrice="38"
-        />
+        {markets.map((market) => (
+          <MarketCard
+            key={market.address}
+            question={market.question}
+            yesPrice={market.yesPrice}
+            noPrice={market.noPrice}
+          />
+        ))}
       </section>
     </main>
   );
 }
-``
