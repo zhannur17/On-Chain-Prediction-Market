@@ -44,4 +44,27 @@ it("sets token metadata correctly", async function () {
 
     expect(await token.balanceOf(user.address)).to.equal(amount);
   });
+
+  it("allows owner to mint tokens", async function () {
+  const amount = ethers.parseEther("1000");
+
+  await token.mint(user.address, amount);
+
+  expect(await token.balanceOf(user.address)).to.equal(amount);
+});
+
+it("reverts minting above max supply", async function () {
+  const maxSupply = await token.MAX_SUPPLY();
+  const currentSupply = await token.totalSupply();
+
+  await expect(
+    token.mint(user.address, maxSupply - currentSupply + 1n)
+  ).to.be.revertedWithCustomError(token, "MaxSupplyExceeded");
+});
+
+it("reverts mint from non-owner", async function () {
+  await expect(
+    token.connect(user).mint(user.address, ethers.parseEther("1"))
+  ).to.be.reverted;
+});
 });

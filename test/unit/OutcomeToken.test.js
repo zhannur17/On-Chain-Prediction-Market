@@ -60,4 +60,36 @@ describe("OutcomeToken", function () {
         .mint(user.address, await outcomeToken.YES(), ethers.parseEther("10"), "0x")
     ).to.be.reverted;
   });
+
+  it("supports interface detection", async function () {
+  expect(
+    await outcomeToken.supportsInterface("0xd9b67a26")
+  ).to.equal(true);
+});
+
+it("allows batch minting logic through multiple mints", async function () {
+  const amount = ethers.parseEther("10");
+
+  await outcomeToken.mint(
+    user.address,
+    await outcomeToken.YES(),
+    amount,
+    "0x"
+  );
+
+  await outcomeToken.mint(
+    user.address,
+    await outcomeToken.NO(),
+    amount,
+    "0x"
+  );
+
+  expect(
+    await outcomeToken.balanceOf(user.address, await outcomeToken.YES())
+  ).to.equal(amount);
+
+  expect(
+    await outcomeToken.balanceOf(user.address, await outcomeToken.NO())
+  ).to.equal(amount);
+});
 });
