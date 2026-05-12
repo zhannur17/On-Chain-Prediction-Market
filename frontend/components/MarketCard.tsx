@@ -2,28 +2,86 @@
 
 import { useState } from "react";
 
+import { ethers } from "ethers";
+
+import PredictionMarketABI from "../lib/abis/PredictionMarket.json";
+import OutcomeTokenABI from "../lib/abis/OutcomeToken.json";
+
+import { CONTRACTS } from "../lib/contracts";
+
 type MarketCardProps = {
+  address: string;
   question: string;
   yesPrice: string;
   noPrice: string;
 };
 
 export default function MarketCard({
+  address,
   question,
   yesPrice,
   noPrice,
 }: MarketCardProps) {
   const [amount, setAmount] = useState("");
 
-  const handleBuy = (outcome: "YES" | "NO") => {
-    if (!amount) {
-      alert("Enter amount first");
-      return;
-    }
+  const handleBuy = async (
+    outcome: "YES" | "NO"
+  ) => {
+    try {
+      if (!window.ethereum) {
+        alert("Install MetaMask");
+        return;
+      }
 
-    alert(
-      `Buy ${outcome} clicked with amount ${amount}. Contract transaction will be connected next.`
-    );
+      if (!amount) {
+        alert("Enter amount first");
+        return;
+      }
+
+      const provider =
+        new ethers.BrowserProvider(window.ethereum);
+
+      const signer = await provider.getSigner();
+
+      const collateral = new ethers.Contract(
+        CONTRACTS.MockCollateral,
+        OutcomeTokenABI,
+        signer
+      );
+
+      const market = new ethers.Contract(
+        address,
+        PredictionMarketABI,
+        signer
+      );
+
+      const parsedAmount =
+        ethers.parseEther(amount);
+
+      const approveTx = await collateral.approve(
+        address,
+        parsedAmount
+      );
+
+      await approveTx.wait();
+
+      const tx = await market.buyShares(
+        outcome === "YES",
+        parsedAmount,
+        0,
+        {
+          gasLimit: 500000,
+        }
+      );
+
+      await tx.wait();
+
+      alert("Trade successful");
+    } catch (error) {
+      console.error(error);
+
+      alert("Transaction failed");
+    }
   };
 
   return (

@@ -3,5 +3,8 @@ export const CONTRACTS = {
   
     OutcomeToken: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
   
-    PredictionMarket: "СЮДА_АДРЕС_ТВОЕГО_MARKET",
+    PredictionMarket: "0x75537828f2ce51be7289709686A69CbFDbB714F1",
+  
+    MockCollateral:
+      "0x5FbDB2315678afecb367f032d93F642f64180aa3",
   };

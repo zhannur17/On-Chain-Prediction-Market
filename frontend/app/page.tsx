@@ -20,6 +20,8 @@ type Market = {
 };
 
 export default function Home() {
+  const [mounted, setMounted] = useState(false);
+
   const { address, isConnected } = useAccount();
 
   const { connect } = useConnect();
@@ -28,13 +30,8 @@ export default function Home() {
 
   const [markets, setMarkets] = useState<Market[]>([]);
 
-  const [mounted, setMounted] = useState(false);
-
   useEffect(() => {
     setMounted(true);
-  }, []);
-
-  useEffect(() => {
     loadMarkets();
   }, []);
 
@@ -131,14 +128,23 @@ export default function Home() {
           Markets
         </h2>
 
-        {markets.map((market) => (
-          <MarketCard
+        <div className="grid gap-4 mt-4">
+          {markets.map((market) => (
+            <MarketCard
+
             key={market.address}
+          
+            address={market.address}
+          
             question={market.question}
+          
             yesPrice={market.yesPrice}
+          
             noPrice={market.noPrice}
+          
           />
-        ))}
+          ))}
+        </div>
       </section>
     </main>
   );
