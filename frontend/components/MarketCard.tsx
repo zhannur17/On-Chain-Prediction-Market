@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ethers } from "ethers";
 
 import PredictionMarketABI from "../lib/abis/PredictionMarket.json";
-import OutcomeTokenABI from "../lib/abis/OutcomeToken.json";
+import MockCollateralABI from "../lib/abis/MockCollateral.json";
 
 import { CONTRACTS } from "../lib/contracts";
 
@@ -45,7 +45,7 @@ export default function MarketCard({
 
       const collateral = new ethers.Contract(
         CONTRACTS.MockCollateral,
-        OutcomeTokenABI,
+        MockCollateralABI.abi,
         signer
       );
 

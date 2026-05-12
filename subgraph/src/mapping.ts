@@ -10,7 +10,7 @@ import {
 } from "../generated/schema";
 
 export function handleMarketCreated(event: MarketCreated): void {
-  let market = new Market(event.transaction.hash.toHex());
+  let market = new Market(event.params.market.toHex());
 
   market.marketAddress = event.params.market;
   market.creator = event.params.creator;
