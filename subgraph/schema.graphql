@@ -1,0 +1,31 @@
+type Market @entity(immutable: false) {
+  id: ID!
+  marketAddress: Bytes!
+  creator: Bytes!
+  question: String!
+  endTime: BigInt!
+  createdAt: BigInt!
+}
+
+type Trade @entity(immutable: true) {
+  id: ID!
+  market: Market!
+  trader: Bytes!
+  outcome: Boolean!
+  amountIn: BigInt!
+  amountOut: BigInt!
+  fee: BigInt!
+  blockTimestamp: BigInt!
+}
+
+type Resolution @entity(immutable: true) {
+  id: ID!
+  market: Market!
+  winningOutcome: Boolean!
+  blockTimestamp: BigInt!
+}
+
+type Factory @entity(immutable: false) {
+  id: ID!
+  marketsCount: BigInt!
+}
