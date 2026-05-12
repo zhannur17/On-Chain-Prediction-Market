@@ -28,6 +28,12 @@ export default function Home() {
 
   const [markets, setMarkets] = useState<Market[]>([]);
 
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     loadMarkets();
   }, []);
@@ -87,6 +93,10 @@ export default function Home() {
       console.error(error);
     }
   };
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <main className="min-h-screen p-8">
