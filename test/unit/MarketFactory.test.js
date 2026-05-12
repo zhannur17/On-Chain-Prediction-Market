@@ -57,4 +57,61 @@ describe("MarketFactory", function () {
       )
     ).to.be.reverted;
   });
+
+  it("stores created market address", async function () {
+  const latestBlock = await ethers.provider.getBlock("latest");
+  const endTime = latestBlock.timestamp + 7 * 24 * 60 * 60;
+
+  await factory.createMarket(
+    "Will ETH be above $5000?",
+    endTime,
+    ethers.parseEther("1000"),
+    ethers.parseEther("1000")
+  );
+
+  const marketAddress = await factory.markets(0);
+
+  expect(marketAddress).to.not.equal(ethers.ZeroAddress);
+});
+
+it("creates multiple markets", async function () {
+  const latestBlock = await ethers.provider.getBlock("latest");
+  const endTime = latestBlock.timestamp + 7 * 24 * 60 * 60;
+
+  await factory.createMarket(
+    "Market 1",
+    endTime,
+    ethers.parseEther("1000"),
+    ethers.parseEther("1000")
+  );
+
+  await factory.createMarket(
+    "Market 2",
+    endTime,
+    ethers.parseEther("1000"),
+    ethers.parseEther("1000")
+  );
+
+  expect(await factory.getMarketsCount()).to.equal(2);
+});
+
+it("reverts when creating market with zero YES reserve", async function () {
+  const latestBlock = await ethers.provider.getBlock("latest");
+  const endTime = latestBlock.timestamp + 7 * 24 * 60 * 60;
+
+  await expect(
+    factory.createMarket(
+      "Invalid market",
+      endTime,
+      0,
+      ethers.parseEther("1000")
+    )
+  ).to.be.revertedWithCustomError(
+    await ethers.getContractAt(
+      "PredictionMarket",
+      ethers.ZeroAddress
+    ),
+    "InvalidInitialReserve"
+  );
+});
 });
