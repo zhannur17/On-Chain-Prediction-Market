@@ -1,24 +1,20 @@
 const { ethers } = require("hardhat");
 
 async function main() {
-  const outcomeToken = await ethers.getContractAt(
-    "OutcomeToken",
-    "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
-  );
+  const [deployer] = await ethers.getSigners();
+  console.log("Using account:", deployer.address);
+
+  const OUTCOME_TOKEN = "0x267F0B72F9E3a1e75fE9f105F5F952a9394726De";
+  const MARKET_ADDRESS = "0x56648Df09026D7f02788d129d8332d5242832852";
+
+  const outcomeToken = await ethers.getContractAt("OutcomeToken", OUTCOME_TOKEN);
 
   const MINTER_ROLE = await outcomeToken.MINTER_ROLE();
 
-  const tx = await outcomeToken.grantRole(
-    MINTER_ROLE,
-    "0x75537828f2ce51be7289709686A69CbFDbB714F1"
-  );
-
+  console.log("Granting MINTER_ROLE to market...");
+  const tx = await outcomeToken.grantRole(MINTER_ROLE, MARKET_ADDRESS);
   await tx.wait();
-
-  console.log("MINTER_ROLE granted");
+  console.log("Done!");
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+main().catch(console.error);

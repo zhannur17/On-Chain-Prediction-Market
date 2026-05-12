@@ -6,7 +6,7 @@ import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
 
 import { WagmiProvider } from "wagmi";
 
-import { hardhat } from "wagmi/chains";
+import { sepolia } from "wagmi/chains";
 
 import {
   QueryClient,
@@ -18,7 +18,7 @@ const config = getDefaultConfig({
 
   projectId: "local",
 
-  chains: [hardhat],
+  chains: [sepolia],
 
   ssr: false,
 });
