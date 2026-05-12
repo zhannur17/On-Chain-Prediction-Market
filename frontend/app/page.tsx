@@ -6,9 +6,7 @@ import { injected } from "wagmi/connectors";
 import { ethers } from "ethers";
 
 import MarketCard from "../components/MarketCard";
-
 import { CONTRACTS } from "../lib/contracts";
-
 import MarketFactoryABI from "../lib/abis/MarketFactory.json";
 import PredictionMarketABI from "../lib/abis/PredictionMarket.json";
 
@@ -21,13 +19,9 @@ type Market = {
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
-
   const { address, isConnected } = useAccount();
-
   const { connect } = useConnect();
-
   const { disconnect } = useDisconnect();
-
   const [markets, setMarkets] = useState<Market[]>([]);
 
   useEffect(() => {
@@ -38,7 +32,7 @@ export default function Home() {
   const loadMarkets = async () => {
     try {
       const provider = new ethers.JsonRpcProvider(
-        "http://127.0.0.1:8545"
+        "https://ethereum-sepolia-rpc.publicnode.com"
       );
 
       const factory = new ethers.Contract(
@@ -48,7 +42,6 @@ export default function Home() {
       );
 
       const count = await factory.getMarketsCount();
-
       const loadedMarkets: Market[] = [];
 
       for (let i = 0; i < Number(count); i++) {
@@ -61,46 +54,30 @@ export default function Home() {
         );
 
         const question = await market.question();
-
         const yesReserve = await market.yesReserve();
-
         const noReserve = await market.noReserve();
-
-        const total =
-          Number(yesReserve) + Number(noReserve);
-
-        const yesPrice = (
-          Number(yesReserve) / total
-        ).toFixed(2);
-
-        const noPrice = (
-          Number(noReserve) / total
-        ).toFixed(2);
+        const total = Number(yesReserve) + Number(noReserve);
 
         loadedMarkets.push({
           address: marketAddress,
           question,
-          yesPrice,
-          noPrice,
+          yesPrice: total > 0 ? (Number(noReserve) / total).toFixed(2) : "0.50",
+          noPrice: total > 0 ? (Number(yesReserve) / total).toFixed(2) : "0.50",
         });
       }
 
       setMarkets(loadedMarkets);
     } catch (error) {
-      console.error(error);
+      console.error("Failed to load markets:", error);
     }
   };
 
-  if (!mounted) {
-    return null;
-  }
+  if (!mounted) return null;
 
   return (
     <main className="min-h-screen p-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">
-          On-Chain Prediction Market
-        </h1>
+        <h1 className="text-2xl font-bold">On-Chain Prediction Market</h1>
 
         {!isConnected ? (
           <button
@@ -111,8 +88,7 @@ export default function Home() {
           </button>
         ) : (
           <div className="flex gap-4 items-center">
-            <span>{address}</span>
-
+            <span className="text-sm truncate max-w-xs">{address}</span>
             <button
               onClick={() => disconnect()}
               className="bg-red-500 text-white px-4 py-2 rounded"
@@ -124,27 +100,23 @@ export default function Home() {
       </div>
 
       <section className="mt-12">
-        <h2 className="text-xl font-semibold">
-          Markets
-        </h2>
+        <h2 className="text-xl font-semibold">Markets</h2>
 
-        <div className="grid gap-4 mt-4">
-          {markets.map((market) => (
-            <MarketCard
-
-            key={market.address}
-          
-            address={market.address}
-          
-            question={market.question}
-          
-            yesPrice={market.yesPrice}
-          
-            noPrice={market.noPrice}
-          
-          />
-          ))}
-        </div>
+        {markets.length === 0 ? (
+          <p className="text-gray-500 mt-4">No markets yet.</p>
+        ) : (
+          <div className="grid gap-4 mt-4">
+            {markets.map((market) => (
+              <MarketCard
+                key={market.address}
+                address={market.address}
+                question={market.question}
+                yesPrice={market.yesPrice}
+                noPrice={market.noPrice}
+              />
+            ))}
+          </div>
+        )}
       </section>
     </main>
   );
