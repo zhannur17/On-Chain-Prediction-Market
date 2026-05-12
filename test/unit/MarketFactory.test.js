@@ -114,4 +114,29 @@ it("reverts when creating market with zero YES reserve", async function () {
     "InvalidInitialReserve"
   );
 });
+
+it("creates market deterministically with CREATE2", async function () {
+  const latestBlock = await ethers.provider.getBlock("latest");
+  const endTime = latestBlock.timestamp + 7 * 24 * 60 * 60;
+  const salt = ethers.id("market-1");
+
+  const predicted = await factory.predictMarketAddress(
+    salt,
+    "CREATE2 market",
+    endTime,
+    ethers.parseEther("1000"),
+    ethers.parseEther("1000")
+  );
+
+  await factory.createMarketDeterministic(
+    "CREATE2 market",
+    endTime,
+    ethers.parseEther("1000"),
+    ethers.parseEther("1000"),
+    salt
+  );
+
+  expect(await factory.markets(0)).to.equal(predicted);
+  expect(await factory.predictedMarkets(salt)).to.equal(predicted);
+});
 });

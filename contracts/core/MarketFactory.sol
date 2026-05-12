@@ -10,12 +10,14 @@ import {PredictionMarket} from "./PredictionMarket.sol";
 /// @title MarketFactory
 /// @notice Creates prediction markets and tracks all deployed markets.
 contract MarketFactory is AccessControl {
-    bytes32 public constant MARKET_CREATOR_ROLE = keccak256("MARKET_CREATOR_ROLE");
+    bytes32 public constant MARKET_CREATOR_ROLE =
+        keccak256("MARKET_CREATOR_ROLE");
 
     IERC20 public immutable collateralToken;
     OutcomeToken public immutable outcomeToken;
 
     address[] public markets;
+    mapping(bytes32 => address) public predictedMarkets;
 
     event MarketCreated(
         address indexed market,
@@ -61,6 +63,66 @@ contract MarketFactory is AccessControl {
             question,
             endTime
         );
+    }
+
+    function createMarketDeterministic(
+        string memory question,
+        uint256 endTime,
+        uint256 initialYesReserve,
+        uint256 initialNoReserve,
+        bytes32 salt
+    ) external onlyRole(MARKET_CREATOR_ROLE) returns (address market) {
+        market = address(
+            new PredictionMarket{salt: salt}(
+                collateralToken,
+                outcomeToken,
+                question,
+                endTime,
+                initialYesReserve,
+                initialNoReserve
+            )
+        );
+
+        markets.push(market);
+        predictedMarkets[salt] = market;
+
+        emit MarketCreated(
+            market,
+            msg.sender,
+            question,
+            endTime
+        );
+    }
+
+    function predictMarketAddress(
+        bytes32 salt,
+        string memory question,
+        uint256 endTime,
+        uint256 initialYesReserve,
+        uint256 initialNoReserve
+    ) external view returns (address predicted) {
+        bytes memory bytecode = abi.encodePacked(
+            type(PredictionMarket).creationCode,
+            abi.encode(
+                collateralToken,
+                outcomeToken,
+                question,
+                endTime,
+                initialYesReserve,
+                initialNoReserve
+            )
+        );
+
+        bytes32 hash = keccak256(
+            abi.encodePacked(
+                bytes1(0xff),
+                address(this),
+                salt,
+                keccak256(bytecode)
+            )
+        );
+
+        predicted = address(uint160(uint256(hash)));
     }
 
     function getMarketsCount() external view returns (uint256) {
