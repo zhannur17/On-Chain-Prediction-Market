@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAccount, useConnect, useDisconnect, useChainId } from "wagmi";
+import { useAccount, useChainId, useConnect, useDisconnect } from "wagmi";
 import { injected } from "wagmi/connectors";
 import { ethers } from "ethers";
 
 import MarketCard from "../components/MarketCard";
 import { CONTRACTS, BASE_SEPOLIA_CHAIN_ID } from "../lib/contracts";
+import { SUBGRAPH_URL } from "../lib/subgraph";
 import MarketFactoryABI from "../lib/abis/MarketFactory.json";
 import PredictionMarketABI from "../lib/abis/PredictionMarket.json";
+import AccountInfo from "../components/AccountInfo";
+import GovernancePanel from "../components/GovernancePanel";
 
 type Market = {
   address: string;
@@ -23,14 +26,16 @@ export default function Home() {
   const chainId = useChainId();
   const { connect } = useConnect();
   const { disconnect } = useDisconnect();
-  const [markets, setMarkets] = useState<Market[]>([]);
 
-  const isWrongNetwork =
-    isConnected && chainId !== BASE_SEPOLIA_CHAIN_ID;
+  const [markets, setMarkets] = useState<Market[]>([]);
+  const [indexedMarkets, setIndexedMarkets] = useState<Market[]>([]);
+
+  const isWrongNetwork = isConnected && chainId !== BASE_SEPOLIA_CHAIN_ID;
 
   useEffect(() => {
     setMounted(true);
     loadMarkets();
+    loadIndexedMarkets();
   }, []);
 
   const switchToBaseSepolia = async () => {
@@ -67,9 +72,7 @@ export default function Home() {
 
   const loadMarkets = async () => {
     try {
-      const provider = new ethers.JsonRpcProvider(
-        "https://sepolia.base.org"
-      );
+      const provider = new ethers.JsonRpcProvider("https://sepolia.base.org");
 
       const factory = new ethers.Contract(
         CONTRACTS.MarketFactory,
@@ -105,6 +108,47 @@ export default function Home() {
       setMarkets(loadedMarkets);
     } catch (error) {
       console.error("Failed to load markets:", error);
+    }
+  };
+
+  const loadIndexedMarkets = async () => {
+    if (!SUBGRAPH_URL) return;
+
+    try {
+      const response = await fetch(SUBGRAPH_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: `
+            {
+              markets(first: 10, orderBy: createdAt, orderDirection: desc) {
+                id
+                marketAddress
+                question
+                endTime
+                createdAt
+              }
+            }
+          `,
+        }),
+      });
+
+      const result = await response.json();
+
+      const loadedIndexedMarkets: Market[] = result.data.markets.map(
+        (market: any) => ({
+          address: market.marketAddress,
+          question: market.question,
+          yesPrice: "Indexed",
+          noPrice: "Indexed",
+        })
+      );
+
+      setIndexedMarkets(loadedIndexedMarkets);
+    } catch (error) {
+      console.error("Failed to load indexed markets:", error);
     }
   };
 
@@ -149,6 +193,9 @@ export default function Home() {
         </div>
       )}
 
+      <AccountInfo />
+      <GovernancePanel />
+
       <section className="mt-12">
         <h2 className="text-xl font-semibold">Markets</h2>
 
@@ -157,6 +204,28 @@ export default function Home() {
         ) : (
           <div className="grid gap-4 mt-4">
             {markets.map((market) => (
+              <MarketCard
+                key={market.address}
+                address={market.address}
+                question={market.question}
+                yesPrice={market.yesPrice}
+                noPrice={market.noPrice}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mt-12">
+        <h2 className="text-xl font-semibold">Indexed Markets from The Graph</h2>
+
+        {indexedMarkets.length === 0 ? (
+          <p className="text-gray-500 mt-4">
+            No indexed markets yet or subgraph URL is not configured.
+          </p>
+        ) : (
+          <div className="grid gap-4 mt-4">
+            {indexedMarkets.map((market) => (
               <MarketCard
                 key={market.address}
                 address={market.address}
