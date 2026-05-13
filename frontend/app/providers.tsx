@@ -6,7 +6,7 @@ import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
 
 import { WagmiProvider } from "wagmi";
 
-import { sepolia } from "wagmi/chains";
+import { baseSepolia } from "wagmi/chains";
 
 import {
   QueryClient,
@@ -18,7 +18,7 @@ const config = getDefaultConfig({
 
   projectId: "local",
 
-  chains: [sepolia],
+  chains: [baseSepolia],
 
   ssr: false,
 });

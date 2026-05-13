@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { useAccount, useConnect, useDisconnect, useChainId } from "wagmi";
 import { injected } from "wagmi/connectors";
 import { ethers } from "ethers";
 
 import MarketCard from "../components/MarketCard";
-import { CONTRACTS } from "../lib/contracts";
+import { CONTRACTS, BASE_SEPOLIA_CHAIN_ID } from "../lib/contracts";
 import MarketFactoryABI from "../lib/abis/MarketFactory.json";
 import PredictionMarketABI from "../lib/abis/PredictionMarket.json";
 
@@ -20,19 +20,55 @@ type Market = {
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
   const { connect } = useConnect();
   const { disconnect } = useDisconnect();
   const [markets, setMarkets] = useState<Market[]>([]);
+
+  const isWrongNetwork =
+    isConnected && chainId !== BASE_SEPOLIA_CHAIN_ID;
 
   useEffect(() => {
     setMounted(true);
     loadMarkets();
   }, []);
 
+  const switchToBaseSepolia = async () => {
+    if (!window.ethereum) return;
+
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: "0x14A34" }],
+      });
+    } catch (error: any) {
+      if (error.code === 4902) {
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: "0x14A34",
+              chainName: "Base Sepolia",
+              nativeCurrency: {
+                name: "ETH",
+                symbol: "ETH",
+                decimals: 18,
+              },
+              rpcUrls: ["https://sepolia.base.org"],
+              blockExplorerUrls: ["https://sepolia.basescan.org"],
+            },
+          ],
+        });
+      } else {
+        console.error("Failed to switch network:", error);
+      }
+    }
+  };
+
   const loadMarkets = async () => {
     try {
       const provider = new ethers.JsonRpcProvider(
-        "https://ethereum-sepolia-rpc.publicnode.com"
+        "https://sepolia.base.org"
       );
 
       const factory = new ethers.Contract(
@@ -98,6 +134,20 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {isWrongNetwork && (
+        <div className="mt-6 rounded border border-red-300 bg-red-50 p-4">
+          <p className="text-red-700 font-medium">
+            Wrong network. Please switch to Base Sepolia.
+          </p>
+          <button
+            onClick={switchToBaseSepolia}
+            className="mt-3 bg-black text-white px-4 py-2 rounded"
+          >
+            Switch to Base Sepolia
+          </button>
+        </div>
+      )}
 
       <section className="mt-12">
         <h2 className="text-xl font-semibold">Markets</h2>
