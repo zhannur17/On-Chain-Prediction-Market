@@ -6,7 +6,7 @@ schema:
 dataSources:
   - kind: ethereum
     name: MarketFactory
-    network: localhost
+    network: base-sepolia
 
     source:
       address: "0xf54dcBf5Cc6fDE628a55C07210735D0220154157"

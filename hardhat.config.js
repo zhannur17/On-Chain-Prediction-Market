@@ -16,12 +16,30 @@ module.exports = {
   },
 
   networks: {
-  sepolia: {
-    url: process.env.SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com",
-    accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+    sepolia: {
+      url:
+        process.env.SEPOLIA_RPC_URL ||
+        "https://ethereum-sepolia-rpc.publicnode.com",
+      accounts: process.env.PRIVATE_KEY
+        ? [process.env.PRIVATE_KEY]
+        : [],
+    },
+
+    baseSepolia: {
+      url:
+        process.env.BASE_SEPOLIA_RPC_URL ||
+        "https://sepolia.base.org",
+      accounts: process.env.PRIVATE_KEY
+        ? [process.env.PRIVATE_KEY]
+        : [],
+      chainId: 84532,
+    },
   },
-},
+
   etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY,
+    apiKey: {
+      sepolia: process.env.ETHERSCAN_API_KEY,
+      baseSepolia: process.env.ETHERSCAN_API_KEY,
+    },
   },
 };

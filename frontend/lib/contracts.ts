@@ -17,3 +17,5 @@ export const CONTRACTS = {
   PredictionGovernor:
     "0x7F0Ea970C3EC45DA7A6473911da83294123F92B2",
 };
+
+export const BASE_SEPOLIA_CHAIN_ID = 84532;

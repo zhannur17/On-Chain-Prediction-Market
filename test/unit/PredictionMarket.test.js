@@ -201,4 +201,32 @@ it("allows winning YES holder to claim payout", async function () {
     market.connect(trader).claimPayout()
   ).to.not.be.reverted;
 });
+
+it("should revert when non-resolver tries to resolve market", async function () {
+  const [, nonResolver] = await ethers.getSigners();
+
+  const endTime = await market.endTime();
+
+  await ethers.provider.send("evm_setNextBlockTimestamp", [
+    Number(endTime) + 1,
+  ]);
+  await ethers.provider.send("evm_mine");
+
+  await expect(
+    market.connect(nonResolver).resolveMarket(true)
+  ).to.be.reverted;
+});
+
+it("should allow resolver to resolve market", async function () {
+  const endTime = await market.endTime();
+
+  await ethers.provider.send("evm_setNextBlockTimestamp", [
+    Number(endTime) + 1,
+  ]);
+  await ethers.provider.send("evm_mine");
+
+  await market.resolveMarket(true);
+
+  expect(await market.winningOutcome()).to.equal(true);
+});
 });

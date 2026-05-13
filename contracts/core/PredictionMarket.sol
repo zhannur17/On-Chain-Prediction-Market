@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -9,8 +10,10 @@ import {OutcomeToken} from "../tokens/OutcomeToken.sol";
 
 /// @title PredictionMarket
 /// @notice Binary YES/NO prediction market using constant-product AMM.
-contract PredictionMarket is ReentrancyGuard {
+contract PredictionMarket is ReentrancyGuard, AccessControl {
     using SafeERC20 for IERC20;
+
+    bytes32 public constant RESOLVER_ROLE = keccak256("RESOLVER_ROLE");
 
     enum MarketState {
         Open,
@@ -79,6 +82,9 @@ contract PredictionMarket is ReentrancyGuard {
         yesReserve = _initialYesReserve;
         noReserve = _initialNoReserve;
         state = MarketState.Open;
+
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(RESOLVER_ROLE, msg.sender);
     }
 
     function getAmountOut(
@@ -92,11 +98,10 @@ contract PredictionMarket is ReentrancyGuard {
         amountOut = (amountInWithFee * reserveOut) / (reserveIn + amountInWithFee);
     }
 
-    function getBuyQuote(bool outcome, uint256 collateralIn)
-        external
-        view
-        returns (uint256 sharesOut)
-    {
+    function getBuyQuote(
+        bool outcome,
+        uint256 collateralIn
+    ) external view returns (uint256 sharesOut) {
         if (outcome) {
             return getAmountOut(collateralIn, noReserve, yesReserve);
         }
@@ -139,94 +144,71 @@ contract PredictionMarket is ReentrancyGuard {
     }
 
     function sellShares(
-    bool outcome,
-    uint256 sharesIn,
-    uint256 minCollateralOut
-) external nonReentrant returns (uint256 collateralOut) {
-    if (state != MarketState.Open) revert MarketNotOpen();
-    if (sharesIn == 0) revert ZeroAmount();
+        bool outcome,
+        uint256 sharesIn,
+        uint256 minCollateralOut
+    ) external nonReentrant returns (uint256 collateralOut) {
+        if (state != MarketState.Open) revert MarketNotOpen();
+        if (sharesIn == 0) revert ZeroAmount();
 
-    uint256 fee;
+        uint256 fee;
 
-    if (outcome) {
-        collateralOut = getAmountOut(sharesIn, yesReserve, noReserve);
+        if (outcome) {
+            collateralOut = getAmountOut(sharesIn, yesReserve, noReserve);
 
-        fee = (collateralOut * FEE_BPS) / BPS;
-        collateralOut -= fee;
+            fee = (collateralOut * FEE_BPS) / BPS;
+            collateralOut -= fee;
 
-        if (collateralOut < minCollateralOut) {
-            revert SlippageExceeded();
+            if (collateralOut < minCollateralOut) revert SlippageExceeded();
+
+            yesReserve += sharesIn;
+            noReserve -= collateralOut;
+
+            outcomeToken.burn(msg.sender, outcomeToken.YES(), sharesIn);
+        } else {
+            collateralOut = getAmountOut(sharesIn, noReserve, yesReserve);
+
+            fee = (collateralOut * FEE_BPS) / BPS;
+            collateralOut -= fee;
+
+            if (collateralOut < minCollateralOut) revert SlippageExceeded();
+
+            noReserve += sharesIn;
+            yesReserve -= collateralOut;
+
+            outcomeToken.burn(msg.sender, outcomeToken.NO(), sharesIn);
         }
 
-        yesReserve += sharesIn;
-        noReserve -= collateralOut;
+        collateralToken.safeTransfer(msg.sender, collateralOut);
 
-        outcomeToken.burn(
-            msg.sender,
-            outcomeToken.YES(),
-            sharesIn
-        );
-    } else {
-        collateralOut = getAmountOut(sharesIn, noReserve, yesReserve);
-
-        fee = (collateralOut * FEE_BPS) / BPS;
-        collateralOut -= fee;
-
-        if (collateralOut < minCollateralOut) {
-            revert SlippageExceeded();
-        }
-
-        noReserve += sharesIn;
-        yesReserve -= collateralOut;
-
-        outcomeToken.burn(
-            msg.sender,
-            outcomeToken.NO(),
-            sharesIn
-        );
+        emit SharesSold(msg.sender, outcome, sharesIn, collateralOut, fee);
     }
 
-    collateralToken.safeTransfer(msg.sender, collateralOut);
+    function resolveMarket(
+        bool _winningOutcome
+    ) external onlyRole(RESOLVER_ROLE) {
+        if (block.timestamp < endTime) revert DeadlineNotPassed();
+        if (state != MarketState.Open) revert MarketNotOpen();
 
-    emit SharesSold(
-        msg.sender,
-        outcome,
-        sharesIn,
-        collateralOut,
-        fee
-    );
-}
+        state = MarketState.Resolved;
+        winningOutcome = _winningOutcome;
 
-function resolveMarket(bool _winningOutcome) external {
-    if (block.timestamp < endTime) revert DeadlineNotPassed();
-    if (state != MarketState.Open) revert MarketNotOpen();
+        emit MarketResolved(_winningOutcome);
+    }
 
-    state = MarketState.Resolved;
-    winningOutcome = _winningOutcome;
+    function claimPayout() external nonReentrant {
+        if (state != MarketState.Resolved) revert MarketNotResolved();
 
-    emit MarketResolved(_winningOutcome);
-}
+        uint256 winningTokenId = winningOutcome
+            ? outcomeToken.YES()
+            : outcomeToken.NO();
 
-function claimPayout() external nonReentrant {
-    if (state != MarketState.Resolved) revert MarketNotResolved();
+        uint256 balance = outcomeToken.balanceOf(msg.sender, winningTokenId);
 
-    uint256 winningTokenId = winningOutcome
-        ? outcomeToken.YES()
-        : outcomeToken.NO();
+        if (balance == 0) revert ZeroAmount();
 
-    uint256 balance = outcomeToken.balanceOf(
-        msg.sender,
-        winningTokenId
-    );
+        outcomeToken.burn(msg.sender, winningTokenId, balance);
 
-    if (balance == 0) revert ZeroAmount();
-
-    outcomeToken.burn(
-        msg.sender,
-        winningTokenId,
-        balance
-    );
-
-    collateralToken.safeTransfer(msg.sender, balance);
-}
+        collateralToken.safeTransfer(msg.sender, balance);
+    }
 }
