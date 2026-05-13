@@ -1,0 +1,25 @@
+specVersion: 1.0.0
+schema:
+  file: schema.graphql
+dataSources:
+  - kind: ethereum
+    name: MarketFactory
+    network: base-sepolia
+    source:
+      address: "0xf54dcBf5Cc6fDE628a55C07210735D0220154157"
+      abi: MarketFactory
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Market
+        - Factory
+      abis:
+        - name: MarketFactory
+          file: MarketFactory\MarketFactory.json
+      eventHandlers:
+        - event: MarketCreated(indexed address,indexed address,string,uint256)
+          handler: handleMarketCreated
+      file: MarketFactory\MarketFactory.wasm

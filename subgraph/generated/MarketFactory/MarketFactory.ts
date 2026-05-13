@@ -40,9 +40,156 @@ export class MarketCreated__Params {
   }
 }
 
+export class RoleAdminChanged extends ethereum.Event {
+  get params(): RoleAdminChanged__Params {
+    return new RoleAdminChanged__Params(this);
+  }
+}
+
+export class RoleAdminChanged__Params {
+  _event: RoleAdminChanged;
+
+  constructor(event: RoleAdminChanged) {
+    this._event = event;
+  }
+
+  get role(): Bytes {
+    return this._event.parameters[0].value.toBytes();
+  }
+
+  get previousAdminRole(): Bytes {
+    return this._event.parameters[1].value.toBytes();
+  }
+
+  get newAdminRole(): Bytes {
+    return this._event.parameters[2].value.toBytes();
+  }
+}
+
+export class RoleGranted extends ethereum.Event {
+  get params(): RoleGranted__Params {
+    return new RoleGranted__Params(this);
+  }
+}
+
+export class RoleGranted__Params {
+  _event: RoleGranted;
+
+  constructor(event: RoleGranted) {
+    this._event = event;
+  }
+
+  get role(): Bytes {
+    return this._event.parameters[0].value.toBytes();
+  }
+
+  get account(): Address {
+    return this._event.parameters[1].value.toAddress();
+  }
+
+  get sender(): Address {
+    return this._event.parameters[2].value.toAddress();
+  }
+}
+
+export class RoleRevoked extends ethereum.Event {
+  get params(): RoleRevoked__Params {
+    return new RoleRevoked__Params(this);
+  }
+}
+
+export class RoleRevoked__Params {
+  _event: RoleRevoked;
+
+  constructor(event: RoleRevoked) {
+    this._event = event;
+  }
+
+  get role(): Bytes {
+    return this._event.parameters[0].value.toBytes();
+  }
+
+  get account(): Address {
+    return this._event.parameters[1].value.toAddress();
+  }
+
+  get sender(): Address {
+    return this._event.parameters[2].value.toAddress();
+  }
+}
+
 export class MarketFactory extends ethereum.SmartContract {
   static bind(address: Address): MarketFactory {
     return new MarketFactory("MarketFactory", address);
+  }
+
+  DEFAULT_ADMIN_ROLE(): Bytes {
+    let result = super.call(
+      "DEFAULT_ADMIN_ROLE",
+      "DEFAULT_ADMIN_ROLE():(bytes32)",
+      [],
+    );
+
+    return result[0].toBytes();
+  }
+
+  try_DEFAULT_ADMIN_ROLE(): ethereum.CallResult<Bytes> {
+    let result = super.tryCall(
+      "DEFAULT_ADMIN_ROLE",
+      "DEFAULT_ADMIN_ROLE():(bytes32)",
+      [],
+    );
+    if (result.reverted) {
+      return new ethereum.CallResult();
+    }
+    let value = result.value;
+    return ethereum.CallResult.fromValue(value[0].toBytes());
+  }
+
+  MARKET_CREATOR_ROLE(): Bytes {
+    let result = super.call(
+      "MARKET_CREATOR_ROLE",
+      "MARKET_CREATOR_ROLE():(bytes32)",
+      [],
+    );
+
+    return result[0].toBytes();
+  }
+
+  try_MARKET_CREATOR_ROLE(): ethereum.CallResult<Bytes> {
+    let result = super.tryCall(
+      "MARKET_CREATOR_ROLE",
+      "MARKET_CREATOR_ROLE():(bytes32)",
+      [],
+    );
+    if (result.reverted) {
+      return new ethereum.CallResult();
+    }
+    let value = result.value;
+    return ethereum.CallResult.fromValue(value[0].toBytes());
+  }
+
+  collateralToken(): Address {
+    let result = super.call(
+      "collateralToken",
+      "collateralToken():(address)",
+      [],
+    );
+
+    return result[0].toAddress();
+  }
+
+  try_collateralToken(): ethereum.CallResult<Address> {
+    let result = super.tryCall(
+      "collateralToken",
+      "collateralToken():(address)",
+      [],
+    );
+    if (result.reverted) {
+      return new ethereum.CallResult();
+    }
+    let value = result.value;
+    return ethereum.CallResult.fromValue(value[0].toAddress());
   }
 
   createMarket(
@@ -88,6 +235,53 @@ export class MarketFactory extends ethereum.SmartContract {
     return ethereum.CallResult.fromValue(value[0].toAddress());
   }
 
+  createMarketDeterministic(
+    question: string,
+    endTime: BigInt,
+    initialYesReserve: BigInt,
+    initialNoReserve: BigInt,
+    salt: Bytes,
+  ): Address {
+    let result = super.call(
+      "createMarketDeterministic",
+      "createMarketDeterministic(string,uint256,uint256,uint256,bytes32):(address)",
+      [
+        ethereum.Value.fromString(question),
+        ethereum.Value.fromUnsignedBigInt(endTime),
+        ethereum.Value.fromUnsignedBigInt(initialYesReserve),
+        ethereum.Value.fromUnsignedBigInt(initialNoReserve),
+        ethereum.Value.fromFixedBytes(salt),
+      ],
+    );
+
+    return result[0].toAddress();
+  }
+
+  try_createMarketDeterministic(
+    question: string,
+    endTime: BigInt,
+    initialYesReserve: BigInt,
+    initialNoReserve: BigInt,
+    salt: Bytes,
+  ): ethereum.CallResult<Address> {
+    let result = super.tryCall(
+      "createMarketDeterministic",
+      "createMarketDeterministic(string,uint256,uint256,uint256,bytes32):(address)",
+      [
+        ethereum.Value.fromString(question),
+        ethereum.Value.fromUnsignedBigInt(endTime),
+        ethereum.Value.fromUnsignedBigInt(initialYesReserve),
+        ethereum.Value.fromUnsignedBigInt(initialNoReserve),
+        ethereum.Value.fromFixedBytes(salt),
+      ],
+    );
+    if (result.reverted) {
+      return new ethereum.CallResult();
+    }
+    let value = result.value;
+    return ethereum.CallResult.fromValue(value[0].toAddress());
+  }
+
   getMarketsCount(): BigInt {
     let result = super.call(
       "getMarketsCount",
@@ -111,6 +305,48 @@ export class MarketFactory extends ethereum.SmartContract {
     return ethereum.CallResult.fromValue(value[0].toBigInt());
   }
 
+  getRoleAdmin(role: Bytes): Bytes {
+    let result = super.call("getRoleAdmin", "getRoleAdmin(bytes32):(bytes32)", [
+      ethereum.Value.fromFixedBytes(role),
+    ]);
+
+    return result[0].toBytes();
+  }
+
+  try_getRoleAdmin(role: Bytes): ethereum.CallResult<Bytes> {
+    let result = super.tryCall(
+      "getRoleAdmin",
+      "getRoleAdmin(bytes32):(bytes32)",
+      [ethereum.Value.fromFixedBytes(role)],
+    );
+    if (result.reverted) {
+      return new ethereum.CallResult();
+    }
+    let value = result.value;
+    return ethereum.CallResult.fromValue(value[0].toBytes());
+  }
+
+  hasRole(role: Bytes, account: Address): boolean {
+    let result = super.call("hasRole", "hasRole(bytes32,address):(bool)", [
+      ethereum.Value.fromFixedBytes(role),
+      ethereum.Value.fromAddress(account),
+    ]);
+
+    return result[0].toBoolean();
+  }
+
+  try_hasRole(role: Bytes, account: Address): ethereum.CallResult<boolean> {
+    let result = super.tryCall("hasRole", "hasRole(bytes32,address):(bool)", [
+      ethereum.Value.fromFixedBytes(role),
+      ethereum.Value.fromAddress(account),
+    ]);
+    if (result.reverted) {
+      return new ethereum.CallResult();
+    }
+    let value = result.value;
+    return ethereum.CallResult.fromValue(value[0].toBoolean());
+  }
+
   markets(param0: BigInt): Address {
     let result = super.call("markets", "markets(uint256):(address)", [
       ethereum.Value.fromUnsignedBigInt(param0),
@@ -128,6 +364,114 @@ export class MarketFactory extends ethereum.SmartContract {
     }
     let value = result.value;
     return ethereum.CallResult.fromValue(value[0].toAddress());
+  }
+
+  outcomeToken(): Address {
+    let result = super.call("outcomeToken", "outcomeToken():(address)", []);
+
+    return result[0].toAddress();
+  }
+
+  try_outcomeToken(): ethereum.CallResult<Address> {
+    let result = super.tryCall("outcomeToken", "outcomeToken():(address)", []);
+    if (result.reverted) {
+      return new ethereum.CallResult();
+    }
+    let value = result.value;
+    return ethereum.CallResult.fromValue(value[0].toAddress());
+  }
+
+  predictMarketAddress(
+    salt: Bytes,
+    question: string,
+    endTime: BigInt,
+    initialYesReserve: BigInt,
+    initialNoReserve: BigInt,
+  ): Address {
+    let result = super.call(
+      "predictMarketAddress",
+      "predictMarketAddress(bytes32,string,uint256,uint256,uint256):(address)",
+      [
+        ethereum.Value.fromFixedBytes(salt),
+        ethereum.Value.fromString(question),
+        ethereum.Value.fromUnsignedBigInt(endTime),
+        ethereum.Value.fromUnsignedBigInt(initialYesReserve),
+        ethereum.Value.fromUnsignedBigInt(initialNoReserve),
+      ],
+    );
+
+    return result[0].toAddress();
+  }
+
+  try_predictMarketAddress(
+    salt: Bytes,
+    question: string,
+    endTime: BigInt,
+    initialYesReserve: BigInt,
+    initialNoReserve: BigInt,
+  ): ethereum.CallResult<Address> {
+    let result = super.tryCall(
+      "predictMarketAddress",
+      "predictMarketAddress(bytes32,string,uint256,uint256,uint256):(address)",
+      [
+        ethereum.Value.fromFixedBytes(salt),
+        ethereum.Value.fromString(question),
+        ethereum.Value.fromUnsignedBigInt(endTime),
+        ethereum.Value.fromUnsignedBigInt(initialYesReserve),
+        ethereum.Value.fromUnsignedBigInt(initialNoReserve),
+      ],
+    );
+    if (result.reverted) {
+      return new ethereum.CallResult();
+    }
+    let value = result.value;
+    return ethereum.CallResult.fromValue(value[0].toAddress());
+  }
+
+  predictedMarkets(param0: Bytes): Address {
+    let result = super.call(
+      "predictedMarkets",
+      "predictedMarkets(bytes32):(address)",
+      [ethereum.Value.fromFixedBytes(param0)],
+    );
+
+    return result[0].toAddress();
+  }
+
+  try_predictedMarkets(param0: Bytes): ethereum.CallResult<Address> {
+    let result = super.tryCall(
+      "predictedMarkets",
+      "predictedMarkets(bytes32):(address)",
+      [ethereum.Value.fromFixedBytes(param0)],
+    );
+    if (result.reverted) {
+      return new ethereum.CallResult();
+    }
+    let value = result.value;
+    return ethereum.CallResult.fromValue(value[0].toAddress());
+  }
+
+  supportsInterface(interfaceId: Bytes): boolean {
+    let result = super.call(
+      "supportsInterface",
+      "supportsInterface(bytes4):(bool)",
+      [ethereum.Value.fromFixedBytes(interfaceId)],
+    );
+
+    return result[0].toBoolean();
+  }
+
+  try_supportsInterface(interfaceId: Bytes): ethereum.CallResult<boolean> {
+    let result = super.tryCall(
+      "supportsInterface",
+      "supportsInterface(bytes4):(bool)",
+      [ethereum.Value.fromFixedBytes(interfaceId)],
+    );
+    if (result.reverted) {
+      return new ethereum.CallResult();
+    }
+    let value = result.value;
+    return ethereum.CallResult.fromValue(value[0].toBoolean());
   }
 }
 
@@ -212,5 +556,157 @@ export class CreateMarketCall__Outputs {
 
   get market(): Address {
     return this._call.outputValues[0].value.toAddress();
+  }
+}
+
+export class CreateMarketDeterministicCall extends ethereum.Call {
+  get inputs(): CreateMarketDeterministicCall__Inputs {
+    return new CreateMarketDeterministicCall__Inputs(this);
+  }
+
+  get outputs(): CreateMarketDeterministicCall__Outputs {
+    return new CreateMarketDeterministicCall__Outputs(this);
+  }
+}
+
+export class CreateMarketDeterministicCall__Inputs {
+  _call: CreateMarketDeterministicCall;
+
+  constructor(call: CreateMarketDeterministicCall) {
+    this._call = call;
+  }
+
+  get question(): string {
+    return this._call.inputValues[0].value.toString();
+  }
+
+  get endTime(): BigInt {
+    return this._call.inputValues[1].value.toBigInt();
+  }
+
+  get initialYesReserve(): BigInt {
+    return this._call.inputValues[2].value.toBigInt();
+  }
+
+  get initialNoReserve(): BigInt {
+    return this._call.inputValues[3].value.toBigInt();
+  }
+
+  get salt(): Bytes {
+    return this._call.inputValues[4].value.toBytes();
+  }
+}
+
+export class CreateMarketDeterministicCall__Outputs {
+  _call: CreateMarketDeterministicCall;
+
+  constructor(call: CreateMarketDeterministicCall) {
+    this._call = call;
+  }
+
+  get market(): Address {
+    return this._call.outputValues[0].value.toAddress();
+  }
+}
+
+export class GrantRoleCall extends ethereum.Call {
+  get inputs(): GrantRoleCall__Inputs {
+    return new GrantRoleCall__Inputs(this);
+  }
+
+  get outputs(): GrantRoleCall__Outputs {
+    return new GrantRoleCall__Outputs(this);
+  }
+}
+
+export class GrantRoleCall__Inputs {
+  _call: GrantRoleCall;
+
+  constructor(call: GrantRoleCall) {
+    this._call = call;
+  }
+
+  get role(): Bytes {
+    return this._call.inputValues[0].value.toBytes();
+  }
+
+  get account(): Address {
+    return this._call.inputValues[1].value.toAddress();
+  }
+}
+
+export class GrantRoleCall__Outputs {
+  _call: GrantRoleCall;
+
+  constructor(call: GrantRoleCall) {
+    this._call = call;
+  }
+}
+
+export class RenounceRoleCall extends ethereum.Call {
+  get inputs(): RenounceRoleCall__Inputs {
+    return new RenounceRoleCall__Inputs(this);
+  }
+
+  get outputs(): RenounceRoleCall__Outputs {
+    return new RenounceRoleCall__Outputs(this);
+  }
+}
+
+export class RenounceRoleCall__Inputs {
+  _call: RenounceRoleCall;
+
+  constructor(call: RenounceRoleCall) {
+    this._call = call;
+  }
+
+  get role(): Bytes {
+    return this._call.inputValues[0].value.toBytes();
+  }
+
+  get callerConfirmation(): Address {
+    return this._call.inputValues[1].value.toAddress();
+  }
+}
+
+export class RenounceRoleCall__Outputs {
+  _call: RenounceRoleCall;
+
+  constructor(call: RenounceRoleCall) {
+    this._call = call;
+  }
+}
+
+export class RevokeRoleCall extends ethereum.Call {
+  get inputs(): RevokeRoleCall__Inputs {
+    return new RevokeRoleCall__Inputs(this);
+  }
+
+  get outputs(): RevokeRoleCall__Outputs {
+    return new RevokeRoleCall__Outputs(this);
+  }
+}
+
+export class RevokeRoleCall__Inputs {
+  _call: RevokeRoleCall;
+
+  constructor(call: RevokeRoleCall) {
+    this._call = call;
+  }
+
+  get role(): Bytes {
+    return this._call.inputValues[0].value.toBytes();
+  }
+
+  get account(): Address {
+    return this._call.inputValues[1].value.toAddress();
+  }
+}
+
+export class RevokeRoleCall__Outputs {
+  _call: RevokeRoleCall;
+
+  constructor(call: RevokeRoleCall) {
+    this._call = call;
   }
 }
