@@ -83,7 +83,7 @@ export default function Home() {
       const count = await factory.getMarketsCount();
       const loadedMarkets: Market[] = [];
 
-      for (let i = 0; i < Number(count); i++) {
+      for (let i = Number(count) - 1; i < Number(count); i++){
         const marketAddress = await factory.markets(i);
 
         const market = new ethers.Contract(

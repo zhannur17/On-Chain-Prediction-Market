@@ -27,7 +27,7 @@ export default function AccountInfo() {
 
       const collateral = new ethers.Contract(
         CONTRACTS.MockCollateral,
-        MockCollateralABI.abi,
+        MockCollateralABI,
         provider
       );
 
