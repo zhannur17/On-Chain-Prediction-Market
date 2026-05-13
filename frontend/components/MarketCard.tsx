@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ethers } from "ethers";
+import { useWalletClient, usePublicClient } from "wagmi";
+import { getContract, parseEther } from "viem";
 
 import PredictionMarketABI from "../lib/abis/PredictionMarket.json";
 import MockCollateralABI from "../lib/abis/MockCollateral.json";
@@ -16,54 +17,49 @@ type MarketCardProps = {
 
 export default function MarketCard({ address, question, yesPrice, noPrice }: MarketCardProps) {
   const [amount, setAmount] = useState("");
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
 
   const handleBuy = async (outcome: "YES" | "NO") => {
     try {
-      if (!window.ethereum) { alert("Please install MetaMask."); return; }
+      if (!walletClient) { alert("Please connect wallet."); return; }
       if (!amount || Number(amount) <= 0) { alert("Please enter a valid amount greater than 0."); return; }
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const network = await provider.getNetwork();
-      if (Number(network.chainId) !== 84532) { alert("Wrong network. Please switch to Base Sepolia."); return; }
+      const parsedAmount = parseEther(amount);
+      const marketAddress = address as `0x${string}`;
+      const collateralAddress = CONTRACTS.MockCollateral as `0x${string}`;
 
-      const signer = await provider.getSigner();
+      // Approve
+      const approveTx = await walletClient.writeContract({
+        address: collateralAddress,
+        abi: MockCollateralABI,
+        functionName: "approve",
+        args: [marketAddress, parsedAmount],
+      });
+      await publicClient!.waitForTransactionReceipt({ hash: approveTx });
 
-      const collateral = new ethers.Contract(CONTRACTS.MockCollateral, MockCollateralABI, signer);
-      const market = new ethers.Contract(address, PredictionMarketABI, signer);
+      // Buy shares
+      const buyTx = await walletClient.writeContract({
+        address: marketAddress,
+        abi: PredictionMarketABI,
+        functionName: "buyShares",
+       args: [outcome === "YES", parsedAmount, BigInt(0)],
+        gas: BigInt(500000),
+      });
+      await publicClient!.waitForTransactionReceipt({ hash: buyTx });
 
-      // Проверка состояния маркета
-      const state = await market.state();
-      if (Number(state) !== 0) {
-        alert(`Market is not open (state: ${state}). Cannot buy shares.`);
-        return;
-      }
-
-      const parsedAmount = ethers.parseEther(amount);
-
-      const balance = await collateral.balanceOf(await signer.getAddress());
-      if (balance < parsedAmount) { alert("Insufficient collateral balance."); return; }
-
-      const approveTx = await collateral.approve(address, parsedAmount);
-      await approveTx.wait();
-
-      const tx = await market.buyShares(outcome === "YES", parsedAmount, 0, { gasLimit: 500000 });
-      await tx.wait();
-
-      alert("Trade successful.");
+      alert("Trade successful!");
       setAmount("");
     } catch (error: any) {
       console.error(error);
       const message = String(error?.shortMessage || error?.message || "");
-
-      if (error?.code === 4001 || message.toLowerCase().includes("user rejected")) {
+      if (message.includes("User rejected") || message.includes("user rejected")) {
         alert("Transaction rejected in MetaMask."); return;
       }
       if (message.includes("MarketNotOpen")) { alert("Market is not open."); return; }
       if (message.includes("DeadlinePassed")) { alert("Market deadline has passed."); return; }
-      if (message.includes("SlippageExceeded")) { alert("Slippage too high. Try a smaller amount."); return; }
-      if (message.includes("ZeroAmount")) { alert("Amount cannot be zero."); return; }
-
-      alert("Transaction failed: " + (error?.shortMessage || message));
+      if (message.includes("SlippageExceeded")) { alert("Slippage too high."); return; }
+      alert("Transaction failed: " + message);
     }
   };
 

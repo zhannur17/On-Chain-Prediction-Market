@@ -9,7 +9,7 @@ async function main() {
   const targets = [COLLATERAL];
   const values = [0];
   const calldatas = ["0x"];
-  const description = "Proposal #1: Demo governance proposal";
+  const description = "Proposal #2: Demo governance proposal";
 
   const tx = await governor.propose(
     targets,
