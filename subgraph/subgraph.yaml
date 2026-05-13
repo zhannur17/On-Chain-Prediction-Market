@@ -31,3 +31,34 @@ dataSources:
           handler: handleMarketCreated
 
       file: ./src/mapping.ts
+
+templates:
+  - kind: ethereum/contract
+    name: PredictionMarket
+    network: base-sepolia
+
+    source:
+      abi: PredictionMarket
+
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+
+      entities:
+        - Market
+        - Trade
+        - Resolution
+
+      abis:
+        - name: PredictionMarket
+          file: ../frontend/lib/abis/PredictionMarket.json
+
+      eventHandlers:
+        - event: SharesBought(indexed address,indexed bool,uint256,uint256,uint256)
+          handler: handleSharesBought
+
+        - event: MarketResolved(indexed bool)
+          handler: handleMarketResolved
+
+      file: ./src/mapping.ts

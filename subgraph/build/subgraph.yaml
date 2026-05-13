@@ -23,3 +23,26 @@ dataSources:
         - event: MarketCreated(indexed address,indexed address,string,uint256)
           handler: handleMarketCreated
       file: MarketFactory\MarketFactory.wasm
+templates:
+  - kind: ethereum/contract
+    name: PredictionMarket
+    network: base-sepolia
+    source:
+      abi: PredictionMarket
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Market
+        - Trade
+        - Resolution
+      abis:
+        - name: PredictionMarket
+          file: PredictionMarket\PredictionMarket.json
+      eventHandlers:
+        - event: SharesBought(indexed address,indexed bool,uint256,uint256,uint256)
+          handler: handleSharesBought
+        - event: MarketResolved(indexed bool)
+          handler: handleMarketResolved
+      file: MarketFactory\MarketFactory.wasm
