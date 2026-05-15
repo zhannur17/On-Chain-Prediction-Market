@@ -6,39 +6,7 @@
 
 ## 1. System Context Diagram (C4 Level 1)
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        EXTERNAL ACTORS                              │
-│                                                                     │
-│   [Trader]          [LP Provider]       [DAO Voter]    [Resolver]   │
-│   Buys/sells        Deposits into       Votes on       Resolves     │
-│   outcome shares    FeeVault            proposals      markets      │
-└────────┬──────────────────┬─────────────────┬──────────┬───────────┘
-         │                  │                 │          │
-         ▼                  ▼                 ▼          ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│              ON-CHAIN PREDICTION MARKET PROTOCOL                    │
-│                    (Base Sepolia L2)                                │
-│                                                                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐  │
-│  │PredictionMkt │  │  FeeVault    │  │  Governance Stack        │  │
-│  │(CPMM AMM)    │  │  (ERC-4626)  │  │  Governor + Timelock     │  │
-│  └──────────────┘  └──────────────┘  └──────────────────────────┘  │
-│                                                                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐  │
-│  │MarketFactory │  │OutcomeToken  │  │  ChainlinkResolver       │  │
-│  │(CREATE/2)    │  │(ERC-1155)    │  │  (Oracle Adapter)        │  │
-│  └──────────────┘  └──────────────┘  └──────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────┘
-         │                                        │
-         ▼                                        ▼
-┌─────────────────────┐              ┌────────────────────────────┐
-│  EXTERNAL SERVICES  │              │   EXTERNAL SERVICES        │
-│                     │              │                            │
-│  Chainlink Price    │              │  The Graph                 │
-│  Feeds (ETH/USD)    │              │  (Subgraph Indexer)        │
-└─────────────────────┘              └────────────────────────────┘
-```
+![System Context](./images/c4-context.png)
 
 **System boundaries:**
 - All smart contracts deployed on Base Sepolia (L2)
@@ -52,67 +20,7 @@
 
 ### 2.1 Contract Relationships
 
-```
-                    ┌─────────────────────────────────────┐
-                    │           GovernanceToken            │
-                    │    ERC20 + ERC20Votes + ERC20Permit  │
-                    │    MAX_SUPPLY = 100,000,000 PRED     │
-                    │    Owner: deployer                   │
-                    └──────────────┬──────────────────────┘
-                                   │ IVotes
-                    ┌──────────────▼──────────────────────┐
-                    │         PredictionGovernor           │
-                    │  voting delay:  7200 blocks (1 day)  │
-                    │  voting period: 50400 blocks (1 wk)  │
-                    │  quorum:        4%                   │
-                    │  threshold:     1 PRED               │
-                    └──────────────┬──────────────────────┘
-                                   │ TimelockController
-                    ┌──────────────▼──────────────────────┐
-                    │         PredictionTimelock           │
-                    │         MIN_DELAY = 2 days           │
-                    │  Controls: treasury, privileged ops  │
-                    └─────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────────────┐
-│                        MarketFactory                             │
-│  AccessControl: DEFAULT_ADMIN_ROLE, MARKET_CREATOR_ROLE          │
-│  createMarket()          → CREATE  (standard deployment)         │
-│  createMarketDeterministic() → CREATE2 (predictable address)     │
-│  predictMarketAddress()  → view (pre-compute CREATE2 address)    │
-└─────────────────────┬────────────────────────────────────────────┘
-                      │ deploys
-          ┌───────────▼───────────────┐
-          │      PredictionMarket     │◄─── IERC20 (collateralToken)
-          │  State: Open→Resolved     │
-          │  CPMM: x·y=k, fee 0.3%   │◄─── OutcomeToken (ERC-1155)
-          │  Roles: RESOLVER_ROLE     │
-          │  ReentrancyGuard          │
-          └───────────┬───────────────┘
-                      │ mints/burns
-          ┌───────────▼───────────────┐    ┌──────────────────────┐
-          │       OutcomeToken        │    │      FeeVault        │
-          │  ERC-1155                 │    │  ERC-4626            │
-          │  ID 0 = YES shares        │    │  asset: collateral   │
-          │  ID 1 = NO shares         │    │  shares: vPRED       │
-          │  Roles: MINTER_ROLE       │    │  FEE_DEPOSITOR_ROLE  │
-          └───────────────────────────┘    └──────────────────────┘
-
-          ┌─────────────────────────────────────────────────────┐
-          │              ChainlinkResolver                      │
-          │  STALENESS_THRESHOLD = 3600s                        │
-          │  DISPUTE_WINDOW = 2 hours                           │
-          │  Roles: RESOLVER_ROLE, DEFAULT_ADMIN_ROLE           │
-          │  Integrates: AggregatorV3Interface (ETH/USD feed)   │
-          └─────────────────────────────────────────────────────┘
-
-          ┌─────────────────────────────────────────────────────┐
-          │    UpgradeableCounterV1 / V2 (UUPS Proxy)          │
-          │  V1: increment()                                    │
-          │  V2: increment() + decrement() + version()         │
-          │  _authorizeUpgrade: onlyOwner                      │
-          └─────────────────────────────────────────────────────┘
-```
+![System Context](./images/ComponentContractRelationships.png)
 
 ### 2.2 Access Control Roles
 
@@ -146,80 +54,15 @@
 
 ### 3.1 Buy Outcome Shares (Critical User Flow)
 
-```
-Trader        MetaMask      MockCollateral    PredictionMarket    OutcomeToken
-  │               │               │                  │                │
-  │─ approve() ──►│               │                  │                │
-  │               │─ approve() ──►│                  │                │
-  │               │◄─ tx hash ───│                  │                │
-  │               │               │                  │                │
-  │─ buyShares() ►│               │                  │                │
-  │               │─ buyShares() ──────────────────►│                │
-  │               │               │  safeTransferFrom│                │
-  │               │               │◄─────────────────│                │
-  │               │               │──────────────────►                │
-  │               │               │    (collateral transferred)       │
-  │               │               │                  │─ mint() ──────►│
-  │               │               │                  │◄─ success ─────│
-  │               │               │                  │                │
-  │               │               │   emit SharesBought               │
-  │               │◄──────────────────────── tx receipt ──────────────│
-  │◄─ success ───│               │                  │                │
-```
+![System Context](./images/buyShares.png)
 
 ### 3.2 Governance: Propose → Vote → Queue → Execute
 
-```
-Proposer      GovernanceToken   PredictionGovernor   PredictionTimelock
-  │               │                    │                    │
-  │─ delegate() ─►│                    │                    │
-  │               │ (voting power active)                   │
-  │                                    │                    │
-  │─ propose() ──────────────────────►│                    │
-  │               │     proposalId     │                    │
-  │◄──────────────────────────────────│                    │
-  │                                    │                    │
-  │  [wait 1 day — voting delay]       │                    │
-  │                                    │                    │
-  │─ castVote(proposalId, 1) ─────────►│                    │
-  │◄─────────────────── success ──────│                    │
-  │                                    │                    │
-  │  [wait 1 week — voting period]     │                    │
-  │                                    │                    │
-  │─ queue(proposalId) ───────────────►│                    │
-  │                         _queueOperations() ────────────►│
-  │                                    │    scheduleOperation│
-  │◄─────────────────── success ──────│◄───────────────────│
-  │                                    │                    │
-  │  [wait 2 days — timelock delay]    │                    │
-  │                                    │                    │
-  │─ execute(proposalId) ─────────────►│                    │
-  │                         _executeOperations() ──────────►│
-  │                                    │    execute()       │
-  │◄─────────────────── success ──────│◄───────────────────│
-```
+![System Context](./images/Governance.png)
 
 ### 3.3 Market Resolution via Chainlink Oracle
 
-```
-Resolver      ChainlinkResolver    Chainlink Feed    PredictionMarket
-  │               │                    │                  │
-  │─ resolveMarket(marketId) ─────────►│                  │
-  │               │─ latestRoundData() ►│                  │
-  │               │◄─ (price, updatedAt)│                  │
-  │               │                    │                  │
-  │               │ check: updatedAt > now - 3600s         │
-  │               │ check: price > 0                       │
-  │               │ compare: price vs strikePrice          │
-  │               │                    │                  │
-  │               │ emit MarketResolved(outcome)           │
-  │◄──────────────│                    │                  │
-  │               │                    │                  │
-  │─ resolveMarket(outcome) ──────────────────────────────►│
-  │               │          state = Resolved             │
-  │               │          winningOutcome = outcome     │
-  │◄──────────────────────────── emit MarketResolved ─────│
-```
+![System Context](./images/resolveMarket.png)
 
 ---
 
