@@ -22,36 +22,29 @@ type Market = {
   endDate?: string;
 };
 
-const STATIC_MARKETS: Market[] = [
+// ── Replace these addresses after running: npx hardhat run scripts/deployMarkets.js --network baseSepolia ──
+const STATIC_MARKET_CONFIGS = [
   {
-    address: "0x0000000000000000000000000000000000000001",
+    address: "0xaaeD44e8c362A490a2866e473EF16Ea20135a6f6" as `0x${string}`,
     question: "Will LeBron James retire before the next NBA season?",
-    yesPrice: "0.32",
-    noPrice: "0.68",
     category: "Sports",
     endDate: "Sep 30, 2025",
   },
   {
-    address: "0x0000000000000000000000000000000000000002",
+    address: "0xE60C769DC4d18b0D4adB3F5777370B6E6da4c51b" as `0x${string}`,
     question: "Will MrBeast get married before December 31, 2025?",
-    yesPrice: "0.14",
-    noPrice: "0.86",
     category: "Entertainment",
     endDate: "Dec 31, 2025",
   },
   {
-    address: "0x0000000000000000000000000000000000000003",
+    address: "0xb0545bF4d4BED7DEcFF08AAf0F2d309CDC41EfDe" as `0x${string}`,
     question: "Will Bitcoin reach $150,000 before the end of 2025?",
-    yesPrice: "0.47",
-    noPrice: "0.53",
     category: "Crypto",
     endDate: "Dec 31, 2025",
   },
   {
-    address: "0x0000000000000000000000000000000000000004",
+    address: "0x79934E0a46f4D2c43B8b3930c18d703C78aA890f" as `0x${string}`,
     question: "Will the US Federal Reserve cut rates 3+ times in 2025?",
-    yesPrice: "0.29",
-    noPrice: "0.71",
     category: "Finance",
     endDate: "Dec 31, 2025",
   },
@@ -63,13 +56,15 @@ export default function Home() {
   const chainId = useChainId();
   const { connect } = useConnect();
   const { disconnect } = useDisconnect();
+  const [staticMarkets, setStaticMarkets] = useState<Market[]>([]);
   const [onchainMarket, setOnchainMarket] = useState<Market | null>(null);
   const [indexedMarkets, setIndexedMarkets] = useState<Market[]>([]);
   const isWrongNetwork = isConnected && chainId !== BASE_SEPOLIA_CHAIN_ID;
 
   useEffect(() => {
     setMounted(true);
-    loadMarket();
+    loadStaticMarkets();
+    loadLatestOnchainMarket();
     loadIndexedMarkets();
   }, []);
 
@@ -96,7 +91,37 @@ export default function Home() {
     }
   };
 
-  const loadMarket = async () => {
+  // Load prices from chain for each static market
+  const loadStaticMarkets = async () => {
+    const provider = new ethers.JsonRpcProvider("https://sepolia.base.org");
+    const loaded: Market[] = [];
+
+    for (const cfg of STATIC_MARKET_CONFIGS) {
+      // Skip placeholder addresses
+      if (!cfg.address.startsWith("0x") || cfg.address.includes("PASTE")) {
+        loaded.push({ ...cfg, yesPrice: "0.50", noPrice: "0.50" });
+        continue;
+      }
+      try {
+        const m = new ethers.Contract(cfg.address, PredictionMarketABI, provider);
+        const yesReserve = await m.yesReserve();
+        const noReserve = await m.noReserve();
+        const total = Number(yesReserve) + Number(noReserve);
+        loaded.push({
+          ...cfg,
+          yesPrice: total > 0 ? (Number(noReserve) / total).toFixed(2) : "0.50",
+          noPrice: total > 0 ? (Number(yesReserve) / total).toFixed(2) : "0.50",
+        });
+      } catch {
+        loaded.push({ ...cfg, yesPrice: "0.50", noPrice: "0.50" });
+      }
+    }
+
+    setStaticMarkets(loaded);
+  };
+
+  // Load latest market from the factory (separate from the 4 above)
+  const loadLatestOnchainMarket = async () => {
     try {
       const provider = new ethers.JsonRpcProvider("https://sepolia.base.org");
       const factory = new ethers.Contract(CONTRACTS.MarketFactory, MarketFactoryABI, provider);
@@ -104,6 +129,10 @@ export default function Home() {
       if (Number(count) === 0) return;
 
       const marketAddress = await factory.markets(Number(count) - 1);
+
+      // Skip if it's one of our static markets
+      if (STATIC_MARKET_CONFIGS.some((cfg) => cfg.address.toLowerCase() === marketAddress.toLowerCase())) return;
+
       const m = new ethers.Contract(marketAddress, PredictionMarketABI, provider);
       const question = await m.question();
       const yesReserve = await m.yesReserve();
@@ -118,7 +147,7 @@ export default function Home() {
         category: "On-Chain",
       });
     } catch (error) {
-      console.error("Failed to load market:", error);
+      console.error("Failed to load on-chain market:", error);
     }
   };
 
@@ -159,7 +188,7 @@ export default function Home() {
   if (!mounted) return null;
 
   const allMarkets: Market[] = [
-    ...STATIC_MARKETS,
+    ...staticMarkets,
     ...(onchainMarket ? [onchainMarket] : []),
   ];
 
@@ -254,7 +283,7 @@ export default function Home() {
           )}
         </section>
 
-        {/* The Graph section — restored */}
+        {/* The Graph section */}
         <section>
           <h2 className="text-xl font-semibold mb-5">Indexed Markets from The Graph</h2>
           {indexedMarkets.length === 0 ? (

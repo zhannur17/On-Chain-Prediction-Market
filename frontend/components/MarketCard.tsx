@@ -23,6 +23,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   Crypto: "bg-amber-500/15 text-amber-300 border-amber-500/30",
   Finance: "bg-teal-500/15 text-teal-300 border-teal-500/30",
   "On-Chain": "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
+  "The Graph": "bg-purple-500/15 text-purple-300 border-purple-500/30",
 };
 
 export default function MarketCard({
@@ -38,16 +39,10 @@ export default function MarketCard({
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
 
-  const yesPercent = Math.round(parseFloat(yesPrice) * 100);
-  const noPercent = Math.round(parseFloat(noPrice) * 100);
-
-  const isStatic = address.startsWith("0x00000000000000000000000000000000000000");
+  const yesPercent = Math.round(parseFloat(yesPrice) * 100) || 50;
+  const noPercent = Math.round(parseFloat(noPrice) * 100) || 50;
 
   const handleBuy = async (outcome: "YES" | "NO") => {
-    if (isStatic) {
-      alert("This is a demo market. Connect a real market to trade.");
-      return;
-    }
     try {
       if (!walletClient) { alert("Please connect wallet."); return; }
       if (!amount || Number(amount) <= 0) { alert("Please enter a valid amount greater than 0."); return; }
@@ -91,11 +86,12 @@ export default function MarketCard({
     }
   };
 
-  const categoryStyle = category ? (CATEGORY_COLORS[category] ?? "bg-white/10 text-zinc-300 border-white/10") : "";
+  const categoryStyle = category
+    ? (CATEGORY_COLORS[category] ?? "bg-white/10 text-zinc-300 border-white/10")
+    : "";
 
   return (
     <div className="group relative bg-[#0e1424] border border-white/10 hover:border-indigo-500/40 transition-all duration-300 rounded-2xl p-5 flex flex-col gap-4 overflow-hidden">
-      {/* Subtle background glow on hover */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-indigo-500/5 rounded-2xl" />
 
       {/* Top row: category + end date */}
@@ -116,14 +112,8 @@ export default function MarketCard({
       {/* Probability bar */}
       <div className="space-y-1.5">
         <div className="h-2 rounded-full bg-white/10 overflow-hidden flex">
-          <div
-            className="h-full bg-emerald-500 transition-all duration-500"
-            style={{ width: `${yesPercent}%` }}
-          />
-          <div
-            className="h-full bg-rose-500 transition-all duration-500"
-            style={{ width: `${noPercent}%` }}
-          />
+          <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${yesPercent}%` }} />
+          <div className="h-full bg-rose-500 transition-all duration-500" style={{ width: `${noPercent}%` }} />
         </div>
         <div className="flex justify-between text-xs text-zinc-400">
           <span>YES {yesPercent}%</span>
@@ -160,14 +150,14 @@ export default function MarketCard({
           disabled={loading}
           className="flex-1 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition text-white text-sm font-semibold py-2.5 rounded-xl"
         >
-          {loading ? "..." : "Buy YES"}
+          {loading ? "Pending..." : "Buy YES"}
         </button>
         <button
           onClick={() => handleBuy("NO")}
           disabled={loading}
           className="flex-1 bg-rose-500 hover:bg-rose-400 disabled:opacity-50 disabled:cursor-not-allowed transition text-white text-sm font-semibold py-2.5 rounded-xl"
         >
-          {loading ? "..." : "Buy NO"}
+          {loading ? "Pending..." : "Buy NO"}
         </button>
       </div>
     </div>

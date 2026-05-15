@@ -84,7 +84,6 @@ export default function GovernancePanel() {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const governor = new ethers.Contract(CONTRACTS.PredictionGovernor, PredictionGovernorABI, signer);
-      // descriptionHash для "Demo governance proposal"
       const descriptionHash = ethers.id("Demo governance proposal");
       const tx = await governor.queue([], [], [], descriptionHash);
       await tx.wait();
